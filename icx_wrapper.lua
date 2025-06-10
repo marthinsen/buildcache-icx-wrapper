@@ -60,6 +60,8 @@ local function make_preprocessor_cmd (args, preprocessed_file)
     table.insert(preprocess_args, "/P")
   end
 
+  table.insert(preprocess_args, "/showIncludes") -- For direct mode
+
   return preprocess_args
 end
 
@@ -72,6 +74,31 @@ local function is_table_empty(tbl)
   return next(tbl) == nil
 end
 
+
+local function get_include_files(std_err)
+  local include_files_set = {}
+
+  local incpath_line = "Note: including file:"
+
+  for line in std_err:gmatch("[^\r\n]+") do
+    -- Match lines that look like:
+    -- "Note: including file: <path>"
+    if line:sub(1, #incpath_line) == incpath_line  then
+      local path_string = line:sub(#incpath_line + 1)
+      local path_string_trimmed = path_string:match("^%s*(.-)%s*$") -- Trim leading/trailing whitespace
+      local resolved_path = bcache.resolve_path(path_string_trimmed)
+      include_files_set[path_string_trimmed] = true
+    end
+  end
+
+  local include_files = {}
+  for file in pairs(include_files_set) do
+    table.insert(include_files, file)
+  end
+
+  return include_files
+end
+
 -------------------------------------------------------------------------------
 -- Wrapper interface implementation.
 -------------------------------------------------------------------------------
@@ -79,7 +106,7 @@ end
 function get_capabilities ()
   -- We can use hard links with GCC since it will never overwrite already
   -- existing files.
-  return { "hard_links" }
+  return {"direct_mode", "hard_links"}
 end
 
 function get_build_files ()
@@ -144,6 +171,23 @@ function get_relevant_arguments ()
   return filtered_args
 end
 
+function get_input_files ()
+  local input_files = {}
+
+  -- Iterate through the arguments and collect source files.
+  for i, arg in ipairs(ARGS) do
+    if is_source_file(arg) then
+      local resolved_path = bcache.resolve_path(arg)
+      table.insert(input_files, resolved_path)
+    end
+  end
+
+  bcache.log_debug("Input files: " .. table.concat(input_files, ", "))
+
+  return input_files
+end
+
+
 function preprocess_source ()
   -- Check if this is a compilation command that we support.
   local is_object_compilation = false
@@ -173,4 +217,8 @@ function preprocess_source ()
   m_implicit_input_files = get_include_files(result.std_err)
 
   return result.std_out
+end
+
+function get_implicit_input_files ()
+  return m_implicit_input_files
 end
