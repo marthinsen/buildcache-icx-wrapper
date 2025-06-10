@@ -38,10 +38,15 @@ end
 local function make_preprocessor_cmd (args, preprocessed_file)
   local preprocess_args = {}
 
+  local has_debug_symbols = false;
+
   -- Drop arguments that we do not want/need.
   for i, arg in ipairs(args) do
+    local drop_this_arg = false
     if arg_equals(arg, "c") or arg_starts_with(arg, "Fo") then
-      -- Skip
+      drop_this_arg = true
+    elseif arg_equals(arg, "Z7") then
+      has_debug_symbols = true
     end
     if not drop_this_arg then
       table.insert(preprocess_args, arg)
@@ -49,9 +54,11 @@ local function make_preprocessor_cmd (args, preprocessed_file)
   end
 
   -- Append the required arguments for producing preprocessed output.
-  table.insert(preprocess_args, "/EP")
-  table.insert(preprocess_args, "/P")
-  table.insert(preprocess_args, "/Fi" .. preprocessed_file)
+  if has_debug_symbols then
+    table.insert(preprocess_args, "/EP")
+  else
+    table.insert(preprocess_args, "/P")
+  end
 
   return preprocess_args
 end
@@ -146,6 +153,8 @@ function preprocess_source ()
       is_object_compilation = true
     elseif arg_starts_with(arg, "Fo") then
       has_object_output = true
+    elseif arg_equals(arg, "Zi") or arg_equals(arg, "Zi") then
+      error("PDB generation is not supported.")
     end
   end
   if (not is_object_compilation) or (not has_object_output) then
@@ -161,11 +170,7 @@ function preprocess_source ()
     error("Preprocessing command was unsuccessful.")
   end
 
-  -- Read and return the preprocessed file.
-  local f = assert(io.open(preprocessed_file, "rb"))
-  local preprocessed_source = f:read("*all")
-  f:close()
-  os.remove(preprocessed_file)
+  m_implicit_input_files = get_include_files(result.std_err)
 
-  return preprocessed_source
+  return result.std_out
 end
