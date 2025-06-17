@@ -46,13 +46,20 @@ end
 
 local function make_preprocessor_cmd (args)
   local preprocess_args = {}
+  local source_file = nil
 
   local has_debug_symbols = false;
 
   -- Drop arguments that we do not want/need.
   for i, arg in ipairs(args) do
     local drop_this_arg = false
-    if arg_equals(arg, "c") or arg_starts_with(arg, "Fo") then
+    if is_source_file(arg) then
+      if source_file then
+        error("Multiple source files specified, only one is allowed.")
+      end
+      source_file = bcache.resolve_path(arg)
+      drop_this_arg = true
+    elseif arg_equals(arg, "c") or arg_starts_with(arg, "Fo") then
       drop_this_arg = true
     elseif arg_equals(arg, "Z7") then
       has_debug_symbols = true
@@ -67,6 +74,10 @@ local function make_preprocessor_cmd (args)
     table.insert(preprocess_args, "/EP")
   else
     table.insert(preprocess_args, "/P")
+  end
+
+  if source_file == nil then
+    error("No source file specified for preprocessing.")
   end
 
   table.insert(preprocess_args, "/showIncludes") -- For direct mode
