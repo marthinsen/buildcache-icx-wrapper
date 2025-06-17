@@ -35,7 +35,7 @@ local function arg_equals(arg, command)
   return false
 end
 
-local function make_preprocessor_cmd (args, preprocessed_file)
+local function make_preprocessor_cmd (args)
   local preprocess_args = {}
 
   local has_debug_symbols = false;
@@ -206,11 +206,9 @@ function preprocess_source ()
   end
 
   -- Run the preprocessor step.
-  local preprocessed_file = os.tmpname()
-  local preprocessor_args = make_preprocessor_cmd(ARGS, preprocessed_file)
+  local preprocessor_args = make_preprocessor_cmd(ARGS)
   local result = bcache.run(preprocessor_args)
   if result.return_code ~= 0 then
-    os.remove(preprocessed_file)
     error("Preprocessing command was unsuccessful.")
   end
 
