@@ -35,6 +35,15 @@ local function arg_equals(arg, command)
   return false
 end
 
+local function is_source_file (path)
+  local ext = bcache.get_extension(path):lower()
+  return (ext == ".cpp") or (ext == ".cc") or (ext == ".cxx") or (ext == ".c")
+end
+
+local function is_table_empty(tbl)
+  return next(tbl) == nil
+end
+
 local function make_preprocessor_cmd (args)
   local preprocess_args = {}
 
@@ -63,15 +72,6 @@ local function make_preprocessor_cmd (args)
   table.insert(preprocess_args, "/showIncludes") -- For direct mode
 
   return preprocess_args
-end
-
-local function is_source_file (path)
-  local ext = bcache.get_extension(path):lower()
-  return (ext == ".cpp") or (ext == ".cc") or (ext == ".cxx") or (ext == ".c")
-end
-
-local function is_table_empty(tbl)
-  return next(tbl) == nil
 end
 
 
