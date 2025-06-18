@@ -48,8 +48,6 @@ local function make_preprocessor_cmd (args)
   local preprocess_args = {}
   local source_file = nil
 
-  local has_debug_symbols = false;
-
   -- Drop arguments that we do not want/need.
   for i, arg in ipairs(args) do
     local drop_this_arg = false
@@ -61,8 +59,6 @@ local function make_preprocessor_cmd (args)
       drop_this_arg = true
     elseif arg_equals(arg, "c") or arg_starts_with(arg, "Fo") then
       drop_this_arg = true
-    elseif arg_equals(arg, "Z7") then
-      has_debug_symbols = true
     end
     if not drop_this_arg then
       table.insert(preprocess_args, arg)
@@ -70,11 +66,7 @@ local function make_preprocessor_cmd (args)
   end
 
   -- Append the required arguments for producing preprocessed output.
-  if has_debug_symbols then
-    table.insert(preprocess_args, "/EP")
-  else
-    table.insert(preprocess_args, "/P")
-  end
+  table.insert(preprocess_args, "/EP")
 
   if source_file == nil then
     error("No source file specified for preprocessing.")
