@@ -56,8 +56,7 @@ local function make_preprocessor_cmd (args)
         error("Multiple source files specified, only one is allowed.")
       end
       source_file = bcache.resolve_path(arg)
-      drop_this_arg = true
-    elseif arg_equals(arg, "c") or arg_starts_with(arg, "Fo") then
+    elseif arg_starts_with(arg, "Fo") then
       drop_this_arg = true
     end
     if not drop_this_arg then
@@ -200,7 +199,7 @@ function preprocess_source ()
       is_object_compilation = true
     elseif arg_starts_with(arg, "Fo") then
       has_object_output = true
-    elseif arg_equals(arg, "Zi") or arg_equals(arg, "Zi") then
+    elseif arg_equals(arg, "ZI") or arg_equals(arg, "Zi") then
       error("PDB generation is not supported.")
     end
   end
