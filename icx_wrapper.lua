@@ -119,8 +119,8 @@ function get_build_files ()
         error("Only a single target object file can be specified.")
       end
       files["object"] = drop_leading_colon(ARGS[i]:sub(4,-1))
-    elseif (arg_starts_with(ARGS[i], "Fd")) then
-      -- error("Debug information format 'Program Database (/Zi)' is not supported.")
+    elseif (arg_starts_with(ARGS[i], "Yc")) then
+      error("Precompiled header generation is not supported.")
     end
   end
   if is_table_empty(files) then
