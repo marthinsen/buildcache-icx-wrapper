@@ -40,9 +40,6 @@ local function is_source_file (path)
   return (ext == ".cpp") or (ext == ".cc") or (ext == ".cxx") or (ext == ".c")
 end
 
-local function is_table_empty(tbl)
-  return next(tbl) == nil
-end
 
 local function make_preprocessor_cmd (args)
   local preprocess_args = {}
@@ -115,7 +112,7 @@ function get_build_files ()
   local files = {}
   for i = 2, #ARGS do
     if (arg_starts_with(ARGS[i], "Fo")) then
-      if not is_table_empty(files) then
+      if files["object"] then
         error("Only a single target object file can be specified.")
       end
       files["object"] = drop_leading_colon(ARGS[i]:sub(4,-1))
@@ -123,7 +120,7 @@ function get_build_files ()
       error("Precompiled header generation is not supported.")
     end
   end
-  if is_table_empty(files) then
+  if not files["object"] then
     error("Unable to get the target object file.")
   end
   return files
