@@ -18,6 +18,14 @@ local function drop_leading_colon (str)
   return str
 end
 
+local function change_extension (path, new_ext)
+  local ext = bcache.get_extension(path)
+  if ext ~= "" then
+    return path:sub(1, -(ext:len() + 1)) .. new_ext
+  end
+  return path .. new_ext
+end
+
 local function arg_starts_with (arg, prefix)
   local first_char = arg:sub(1, 1)
   if first_char == "-" or first_char == "/" then
