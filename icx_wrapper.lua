@@ -49,6 +49,34 @@ local function is_source_file (path)
 end
 
 
+local function get_pch_file (args)
+  -- /Fp takes highest priority.
+  for i, arg in ipairs(args) do
+    if arg_starts_with(arg, "Fp") then
+      return drop_leading_colon(arg:sub(4, -1))
+    end
+  end
+
+  -- Next, derive the name from the /Yc argument if one was given.
+  for i, arg in ipairs(args) do
+    if arg_starts_with(arg, "Yc") then
+      local yc_arg = drop_leading_colon(arg:sub(4, -1))
+      if yc_arg ~= "" then
+        return change_extension(yc_arg, ".pch")
+      end
+    end
+  end
+
+  -- Fall back to the source file's base name + ".pch".
+  for i, arg in ipairs(args) do
+    if is_source_file(arg) then
+      return change_extension(bcache.resolve_path(arg), ".pch")
+    end
+  end
+
+  error("Unable to determine precompiled header output file.")
+end
+
 local function make_preprocessor_cmd (args)
   local preprocess_args = {}
   local source_file = nil
@@ -61,7 +89,10 @@ local function make_preprocessor_cmd (args)
         error("Multiple source files specified, only one is allowed.")
       end
       source_file = bcache.resolve_path(arg)
-    elseif arg_starts_with(arg, "Fo") then
+    elseif arg_starts_with(arg, "Fo") or
+        arg_starts_with(arg, "Yc") or
+        arg_starts_with(arg, "Yu") or
+        arg_starts_with(arg, "Fp") then
       drop_this_arg = true
     end
     if not drop_this_arg then
@@ -125,7 +156,7 @@ function get_build_files ()
       end
       files["object"] = drop_leading_colon(ARGS[i]:sub(4,-1))
     elseif (arg_starts_with(ARGS[i], "Yc")) then
-      error("Precompiled header generation is not supported.")
+      files["pch"] = get_pch_file(ARGS)
     end
   end
   if not files["object"] then
