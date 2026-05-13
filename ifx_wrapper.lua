@@ -110,12 +110,12 @@ end
 
 function get_build_files ()
   local files = {}
-  for i = 2, #ARGS do
-    if (arg_starts_with(ARGS[i], "Fo")) then
+  for i = 2, #m_args do
+    if (arg_starts_with(m_args[i], "Fo")) then
       if files["object"] then
         error("Only a single target object file can be specified.")
       end
-      files["object"] = drop_leading_colon(ARGS[i]:sub(4,-1))
+      files["object"] = drop_leading_colon(m_args[i]:sub(4,-1))
     end
   end
   if not files["object"] then
@@ -126,7 +126,7 @@ end
 
 function get_program_id ()
   -- Get the version string for the compiler.
-  local result = bcache.run({ARGS[1], "--version"})
+  local result = bcache.run({m_args[1], "--version"})
   if result.return_code ~= 0 then
     error("Unable to get the compiler version information string.")
   end
@@ -138,11 +138,11 @@ function get_relevant_arguments ()
   local filtered_args = {}
 
   -- The first argument is the compiler binary without the path.
-  table.insert(filtered_args, bcache.get_file_part(ARGS[1]))
+  table.insert(filtered_args, bcache.get_file_part(m_args[1]))
 
   -- Note: We always skip the first arg since we have handled it already.
   local skip_next_arg = true
-  for i, arg in ipairs(ARGS) do
+  for i, arg in ipairs(m_args) do
     if not skip_next_arg then
       local is_unwanted_arg = arg_starts_with(arg, "Fo") or
                               arg_starts_with(arg, "Fd") or
@@ -167,7 +167,7 @@ function get_input_files ()
   local input_files = {}
 
   -- Iterate through the arguments and collect source files.
-  for i, arg in ipairs(ARGS) do
+  for i, arg in ipairs(m_args) do
     if is_source_file(arg) then
       local resolved_path = bcache.resolve_path(arg)
       table.insert(input_files, resolved_path)
@@ -183,7 +183,7 @@ function preprocess_source ()
   -- Check if this is a compilation command that we support.
   local is_object_compilation = false
   local has_object_output = false
-  for i, arg in ipairs(ARGS) do
+  for i, arg in ipairs(m_args) do
     if arg_equals(arg, "c") then
       is_object_compilation = true
     elseif arg_starts_with(arg, "Fo") then
@@ -195,7 +195,7 @@ function preprocess_source ()
   end
 
   -- Run the preprocessor step.
-  local preprocessor_args = make_preprocessor_cmd(ARGS)
+  local preprocessor_args = make_preprocessor_cmd(m_args)
   local result = bcache.run(preprocessor_args)
   if result.return_code ~= 0 then
     error("Preprocessing command was unsuccessful.")
