@@ -157,6 +157,11 @@ function get_build_files ()
       files["object"] = drop_leading_colon(m_args[i]:sub(4,-1))
     elseif (arg_starts_with(m_args[i], "Yc")) then
       files["pch"] = get_pch_file(m_args)
+    elseif (arg_equals(m_args[i], "QMF")) and m_args[i + 1] then
+      -- The dependency file written by -QMD. Cache it as well, so that a cache
+      -- hit restores it. Without it, Ninja finds no depfile on a hit and
+      -- silently records no header dependencies for the object.
+      files["dep"] = m_args[i + 1]
     end
   end
   if not files["object"] then
