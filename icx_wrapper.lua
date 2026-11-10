@@ -114,7 +114,10 @@ end
 
 
 local function get_include_files(std_err)
-  local include_files_set = {}
+  -- Keep the files in the order the compiler reports them, without duplicates,
+  -- so that a generated dependency file is deterministic.
+  local include_files = {}
+  local seen = {}
 
   local incpath_line = "Note: including file:"
 
@@ -124,17 +127,49 @@ local function get_include_files(std_err)
     if line:sub(1, #incpath_line) == incpath_line  then
       local path_string = line:sub(#incpath_line + 1)
       local path_string_trimmed = path_string:match("^%s*(.-)%s*$") -- Trim leading/trailing whitespace
-      local resolved_path = bcache.resolve_path(path_string_trimmed)
-      include_files_set[path_string_trimmed] = true
+      if not seen[path_string_trimmed] then
+        seen[path_string_trimmed] = true
+        table.insert(include_files, path_string_trimmed)
+      end
     end
   end
 
-  local include_files = {}
-  for file in pairs(include_files_set) do
-    table.insert(include_files, file)
-  end
-
   return include_files
+end
+
+-- Write a path the way icx writes it in a dependency file: with backslashes
+-- (/showIncludes keeps the slashes of the #include) and spaces escaped as "\ ".
+local function escape_dep_path (path)
+  return (path:gsub("/", "\\"):gsub(" ", "\\ "))
+end
+
+-- If the command asks for a dependency file (-QMD/-QMMD with -QMF), return
+-- the dependency file, its target and the source file. Otherwise return nil.
+local function get_dep_file_request ()
+  local create_dep_file = false
+  local dep_file, target, object, source
+  local i = 2
+  while i <= #m_args do
+    local arg = m_args[i]
+    if arg_equals(arg, "QMD") or arg_equals(arg, "QMMD") then
+      create_dep_file = true
+    elseif arg_equals(arg, "QMF") and m_args[i + 1] then
+      dep_file = m_args[i + 1]
+      i = i + 1
+    elseif arg_equals(arg, "QMT") and m_args[i + 1] then
+      target = m_args[i + 1]
+      i = i + 1
+    elseif arg_starts_with(arg, "Fo") then
+      object = drop_leading_colon(arg:sub(4, -1))
+    elseif is_source_file(arg) then
+      source = arg
+    end
+    i = i + 1
+  end
+  if not create_dep_file or not dep_file or not source then
+    return nil
+  end
+  return dep_file, target or object, source
 end
 
 -------------------------------------------------------------------------------
@@ -157,12 +192,9 @@ function get_build_files ()
       files["object"] = drop_leading_colon(m_args[i]:sub(4,-1))
     elseif (arg_starts_with(m_args[i], "Yc")) then
       files["pch"] = get_pch_file(m_args)
-    elseif (arg_equals(m_args[i], "QMF")) and m_args[i + 1] then
-      -- The dependency file written by -QMD. Cache it as well, so that a cache
-      -- hit restores it. Without it, Ninja finds no depfile on a hit and
-      -- silently records no header dependencies for the object.
-      files["dep"] = m_args[i + 1]
     end
+    -- Note: The -QMF dependency file is not cached. It holds absolute paths
+    -- that may belong to another checkout, so finalize_after_hit() writes it.
   end
   if not files["object"] then
     error("Unable to get the target object file.")
@@ -262,4 +294,27 @@ end
 
 function get_implicit_input_files ()
   return m_implicit_input_files
+end
+
+function finalize_after_hit ()
+  -- On a cache miss, icx writes the -QMF dependency file itself. On a hit, write
+  -- it here from the include files of this compilation, so that it lists the
+  -- headers of this checkout. buildcache sets m_implicit_input_files from the
+  -- direct mode entry (whose key includes the full paths) or from preprocessing.
+  local dep_file, target, source = get_dep_file_request()
+  if not dep_file then
+    return
+  end
+
+  local lines = {escape_dep_path(target) .. ":", "  " .. escape_dep_path(source)}
+  for _, include_file in ipairs(m_implicit_input_files or {}) do
+    table.insert(lines, "  " .. escape_dep_path(include_file))
+  end
+
+  local file = io.open(dep_file, "w")
+  if not file then
+    error("Unable to write the dependency file " .. dep_file)
+  end
+  file:write(table.concat(lines, " \\\n") .. "\n")
+  file:close()
 end
